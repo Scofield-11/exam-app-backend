@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import models
 import schemas
 from database import get_db
@@ -18,6 +18,7 @@ def import_exam(payload: schemas.ExamImport, db: Session = Depends(get_db)):
     db.refresh(new_exam)
 
     lines = payload.raw_text.strip().split('\n')
+    questions_to_add = []
     for line in lines:
         if not line.strip():
             continue
@@ -32,7 +33,10 @@ def import_exam(payload: schemas.ExamImport, db: Session = Depends(get_db)):
                 opt4=parts[4],
                 correct_ans=int(parts[5])
             )
-            db.add(q)
+            questions_to_add.append(q)
+            
+    if questions_to_add:
+        db.add_all(questions_to_add)
 
     db.commit()
     return {"message": "Tạo bài test thành công", "exam_id": new_exam.id}
@@ -45,7 +49,7 @@ def get_exams(db: Session = Depends(get_db)):
 
 @router.get("/{exam_id}")
 def get_exam_detail(exam_id: int, db: Session = Depends(get_db)):
-    exam = db.query(models.Exam).filter(models.Exam.id == exam_id).first()
+    exam = db.query(models.Exam).options(joinedload(models.Exam.questions)).filter(models.Exam.id == exam_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
 
@@ -73,6 +77,7 @@ def update_exam(exam_id: int, payload: schemas.ExamImport, db: Session = Depends
     db.query(models.ExamQuestion).filter(models.ExamQuestion.exam_id == exam_id).delete()
 
     lines = payload.raw_text.strip().split('\n')
+    questions_to_add = []
     for line in lines:
         if not line.strip():
             continue
@@ -87,7 +92,10 @@ def update_exam(exam_id: int, payload: schemas.ExamImport, db: Session = Depends
                 opt4=parts[4],
                 correct_ans=int(parts[5])
             )
-            db.add(q)
+            questions_to_add.append(q)
+            
+    if questions_to_add:
+        db.add_all(questions_to_add)
 
     db.commit()
     return {"message": "Cập nhật thành công"}
@@ -119,7 +127,7 @@ def save_exam_history(exam_id: int, payload: schemas.ExamHistoryCreate, db: Sess
 
 @router.get("/history/all")
 def get_all_history(db: Session = Depends(get_db)):
-    histories = db.query(models.ExamHistory).order_by(models.ExamHistory.created_at.desc()).all()
+    histories = db.query(models.ExamHistory).options(joinedload(models.ExamHistory.exam)).order_by(models.ExamHistory.created_at.desc()).all()
     result = []
     for h in histories:
         result.append({
