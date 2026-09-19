@@ -14,16 +14,16 @@ DB_NAME = os.getenv("DB_NAME")
 
 SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# Xác định đường dẫn tuyệt đối đến file ca.pem (đặt cùng thư mục với database.py)
+# Chỉ dùng SSL khi file ca.pem tồn tại (cần cho Aiven cloud DB, không cần cho localhost)
 CA_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ca.pem")
+
+connect_args = {}
+if os.path.exists(CA_FILE_PATH):
+    connect_args["ssl"] = {"ca": CA_FILE_PATH}
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={
-        "ssl": {
-            "ca": CA_FILE_PATH
-        }
-    }
+    connect_args=connect_args
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

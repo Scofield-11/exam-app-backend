@@ -10,6 +10,25 @@ router = APIRouter(
 )
 
 
+# === Route cố định phải đặt TRƯỚC route có path parameter {exam_id} ===
+
+@router.get("/history/all")
+def get_all_history(db: Session = Depends(get_db)):
+    histories = db.query(models.ExamHistory).options(joinedload(models.ExamHistory.exam)).order_by(models.ExamHistory.created_at.desc()).all()
+    result = []
+    for h in histories:
+        result.append({
+            "id": h.id,
+            "examId": h.exam_id,
+            "title": h.exam.title if h.exam else "Bài thi đã xóa",
+            "score": h.score,
+            "total": h.total,
+            "date": h.created_at.strftime("%H:%M - %d/%m/%Y"),
+            "wrongDetails": h.wrong_details
+        })
+    return result
+
+
 @router.post("/import")
 def import_exam(payload: schemas.ExamImport, db: Session = Depends(get_db)):
     new_exam = models.Exam(title=payload.title)
@@ -41,6 +60,8 @@ def import_exam(payload: schemas.ExamImport, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Tạo bài test thành công", "exam_id": new_exam.id}
 
+
+# === Route có path parameter {exam_id} đặt SAU các route cố định ===
 
 @router.get("")
 def get_exams(db: Session = Depends(get_db)):
@@ -123,20 +144,3 @@ def save_exam_history(exam_id: int, payload: schemas.ExamHistoryCreate, db: Sess
     db.add(history)
     db.commit()
     return {"message": "Đã lưu lịch sử làm bài"}
-
-
-@router.get("/history/all")
-def get_all_history(db: Session = Depends(get_db)):
-    histories = db.query(models.ExamHistory).options(joinedload(models.ExamHistory.exam)).order_by(models.ExamHistory.created_at.desc()).all()
-    result = []
-    for h in histories:
-        result.append({
-            "id": h.id,
-            "examId": h.exam_id,
-            "title": h.exam.title if h.exam else "Bài thi đã xóa",
-            "score": h.score,
-            "total": h.total,
-            "date": h.created_at.strftime("%H:%M - %d/%m/%Y"),
-            "wrongDetails": h.wrong_details
-        })
-    return result
