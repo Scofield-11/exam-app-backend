@@ -31,4 +31,22 @@ app.include_router(exam.router)
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "message": "Exam App Backend is running properly!"}
+    return {"status": "ok", "message": "Backend API is running properly on Render!"}
+
+# --- CHỐNG SLEEP CHO RENDER (Tự động Ping mỗi 14 phút) ---
+import threading
+import time
+import urllib.request
+
+def keep_alive_ping():
+    url = "https://scofield-backend.onrender.com/"
+    while True:
+        time.sleep(14 * 60) # Chờ 14 phút (Render sleep sau 15 phút)
+        try:
+            urllib.request.urlopen(url, timeout=10)
+            print("Self-ping successful to keep Render awake.")
+        except Exception as e:
+            print(f"Self-ping failed: {e}")
+
+# Chạy ngầm một luồng (thread) ping tự động khi server khởi động
+threading.Thread(target=keep_alive_ping, daemon=True).start()
